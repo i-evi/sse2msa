@@ -11,10 +11,34 @@
  */
 
 /*
+ * This project is a fork from sse2neon(https://github.com/DLTcollab/sse2neon).
  * Contributors to this work are:
+ *   John W. Ratcliff <jratcliffscarab@gmail.com>
+ *   Brandon Rowlett <browlett@nvidia.com>
+ *   Ken Fast <kfast@gdeb.com>
+ *   Eric van Beurden <evanbeurden@nvidia.com>
+ *   Alexander Potylitsin <apotylitsin@nvidia.com>
+ *   Hasindu Gamaarachchi <hasindu2008@gmail.com>
+ *   Jim Huang <jserv@biilabs.io>
+ *   Mark Cheng <marktwtn@biilabs.io>
+ *   Malcolm James MacLeod <malcolm@gulden.com>
+ *   Devin Hussey (easyaspi314) <husseydevin@gmail.com>
+ *   Sebastian Pop <spop@amazon.com>
+ *   Developer Ecosystem Engineering <DeveloperEcosystemEngineering@apple.com>
+ *   Danila Kutenin <danilak@google.com>
+ *   François Turban (JishinMaster) <francois.turban@gmail.com>
+ *   Pei-Hsuan Hung <afcidk@gmail.com>
+ *   Yang-Hao Yuan <yanghau@biilabs.io>
+ *   Syoyo Fujita <syoyo@lighttransport.com>
+ *   Brecht Van Lommel <brecht@blender.org>
  *   Evidence John <mail@evi.fun>
- *
+ */
+
+/*
  * sse2msa is freely redistributable under the MIT License.
+ *
+ * Copyright (c) 2015-2021, The sse2neon project.
+ * Copyright (c) 2021 CIP United Co. Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
