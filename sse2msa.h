@@ -404,16 +404,14 @@ FORCE_INLINE void _mm_store_ps(float *p, __m128 a)
 
 FORCE_INLINE void _mm_storer_ps(float *p, __m128 a)
 {
-	v4i32 mask = {3, 2, 1, 0};
-	__builtin_msa_st_w(
-		__builtin_shuffle(vreinterpret_v4i32(a), mask), p, 0);
+	__builtin_msa_st_w(__builtin_msa_shf_w(
+		vreinterpret_v4i32(a), 0x1b), p, 0);
 }
 
 FORCE_INLINE void _mm_storer_pd(double *p, __m128d a)
 {
-	v2i64 mask = {1, 0};
-	__builtin_msa_st_d(
-		__builtin_shuffle(vreinterpret_v2i64(a), mask), p, 0);
+	p[0] = vreinterpret_nth_f64_m128d(a, 1);
+	p[1] = vreinterpret_nth_f64_m128d(a, 0);
 }
 
 FORCE_INLINE void _mm_store_ps1(float *p, __m128 a)
@@ -570,16 +568,16 @@ FORCE_INLINE __m128 _mm_load_ps(const float *p)
 
 FORCE_INLINE __m128 _mm_loadr_ps(float const* p)
 {
-	v4i32 mask = {3, 2, 1, 0};
-	return vreinterpret_m128(
-		__builtin_shuffle(__builtin_msa_ld_w(p, 0), mask));
+	return vreinterpret_m128(__builtin_msa_shf_w(
+		__builtin_msa_ld_w(p, 0), 0x1b));
 }
 
 FORCE_INLINE __m128d _mm_loadr_pd(const double *p)
 {
-	v2i64 mask = {1, 0};
-	return vreinterpret_m128d(
-		__builtin_shuffle(__builtin_msa_ld_d(p, 0), mask));
+	VREG128 v = {
+		.f64 = {p[1], p[0]}
+	};
+	return v.m128d;
 }
 
 FORCE_INLINE __m128 _mm_loadu_ps(const float *p)
@@ -807,32 +805,39 @@ FORCE_INLINE __m128i _mm_xor_si128(__m128i a, __m128i b)
 
 FORCE_INLINE __m128d _mm_movedup_pd(__m128d a)
 {
-	v2i64 mask = {0, 0};
-	return __builtin_shuffle(a, mask);
+	VREG128 v = {
+		.f64 = {
+			vreinterpret_nth_f64_m128d(a, 0),
+			vreinterpret_nth_f64_m128d(a, 0),
+		}
+	};
+	return v.m128d;
 }
 
 FORCE_INLINE __m128 _mm_movehdup_ps(__m128 a)
 {
-	v4i32 mask = {1, 1, 3, 3};
-	return __builtin_shuffle(a, mask);
+	return vreinterpret_m128(__builtin_msa_shf_w(
+		vreinterpret_v4i32(a), 0xf5));
 }
 
 FORCE_INLINE __m128 _mm_moveldup_ps(__m128 a)
 {
-	v4i32 mask = {0, 0, 2, 2};
-	return __builtin_shuffle(a, mask);
+	return vreinterpret_m128(__builtin_msa_shf_w(
+		vreinterpret_v4i32(a), 0xa0));
 }
 
 FORCE_INLINE __m128 _mm_movehl_ps(__m128 a, __m128 b)
 {
-	v4i32 mask = {6, 7, 2, 3};
-	return __builtin_shuffle(a, b, mask);
+	return vreinterpret_m128(__builtin_msa_vshf_w(
+		({v4i32 mask = {6, 7, 2, 3}; mask;}),
+		vreinterpret_v4i32(b), vreinterpret_v4i32(a)));
 }
 
 FORCE_INLINE __m128 _mm_movelh_ps(__m128 a, __m128 b)
 {
-	v4i32 mask = {0, 1, 4, 5};
-	return __builtin_shuffle(a, b, mask);
+	return vreinterpret_m128(__builtin_msa_vshf_w(
+		({v4i32 mask = {0, 1, 4, 5}; mask;}),
+		vreinterpret_v4i32(b), vreinterpret_v4i32(a)));
 }
 
 FORCE_INLINE __m128i _mm_abs_epi32(__m128i a)
@@ -903,18 +908,18 @@ FORCE_INLINE __m64 _mm_sad_pu8(__m64 a, __m64 b)
 
 FORCE_INLINE __m128 _mm_shuffle_ps(__m128 a, __m128 b, int imm8)
 {
-	return __builtin_shuffle(a, b, ({v4i32 mask =
-		{imm8 & 0x3, (imm8 >> 2) & 0x3, ((imm8 >> 4) & 0x3) + 4,
-		((imm8 >> 6) & 0x3) + 4}; mask;}));
+	return vreinterpret_m128(__builtin_msa_vshf_w(
+		({v4i32 mask = {imm8 & 0x3, (imm8 >> 2) & 0x3,
+		((imm8 >> 4) & 0x3) + 4, ((imm8 >> 6) & 0x3) + 4}; mask;}),
+		vreinterpret_v4i32(b), vreinterpret_v4i32(a)));
 }
 
 FORCE_INLINE __m128i _mm_shuffle_epi32(__m128i a, int imm8)
 {
-	return vreinterpret_m128i(__builtin_shuffle(
-		vreinterpret_v4i32(a), vreinterpret_v4i32(a),
-		({v4i32 mask = {imm8 & 0x3,
-		(imm8 >> 2) & 0x3, ((imm8 >> 4) & 0x3) + 4,
-		((imm8 >> 6) & 0x3) + 4}; mask;})));
+	return vreinterpret_m128i(__builtin_msa_vshf_w(
+		({v4i32 mask = {imm8 & 0x3, (imm8 >> 2) & 0x3,
+		((imm8 >> 4) & 0x3) + 4, ((imm8 >> 6) & 0x3) + 4}; mask;}),
+		vreinterpret_v4i32(a), vreinterpret_v4i32(a)));
 }
 
 FORCE_INLINE __m128i _mm_shuffle_epi8(__m128i a, __m128i b)
@@ -934,7 +939,8 @@ FORCE_INLINE __m64 _mm_shuffle_pi8(__m64 a, __m64 b)
 	v16i8 mask = vreinterpret_v16i8((vb.msa_v16u8 << 5) >> 5);
 	mask = mask | (vb.msa_v16i8 & __builtin_msa_fill_b(0x80));
 	VREG128 v = {
-		.msa_v16i8 = __builtin_shuffle(va.msa_v16i8, mask)
+		.msa_v16i8 = __builtin_msa_vshf_b(
+			mask, va.msa_v16i8, va.msa_v16i8)
 	};
 	return v.m64[0];
 }
@@ -942,10 +948,10 @@ FORCE_INLINE __m64 _mm_shuffle_pi8(__m64 a, __m64 b)
 FORCE_INLINE __m64 _mm_shuffle_pi16(__m64 a, int imm8)
 {
 	VREG128 v = {.m64 = {a, a}};
-	v.msa_v8i16 = __builtin_shuffle(v.msa_v8i16,
-		({v8i16 mask = {(imm8) & (0x3),
-		((imm8) >> 2) & 0x3, (((imm8) >> 4) & 0x3) + 4,
-		(((imm8) >> 6) & 0x3) + 4, 0, 0, 0, 0}; mask;}));
+	v.msa_v8i16 = __builtin_msa_vshf_h(
+		({v8i16 mask = {(imm8) & (0x3), ((imm8) >> 2) & 0x3,
+		(((imm8) >> 4) & 0x3) + 4, (((imm8) >> 6) & 0x3) + 4,
+		0, 0, 0, 0}; mask;}), v.msa_v8i16, v.msa_v8i16);
 	return v.m64[0];
 }
 
@@ -961,8 +967,8 @@ FORCE_INLINE __m128i _mm_shufflehi_epi16(__m128i a, int imm8)
 		((imm8 >> 6) & 0x3) + 4
 
 	};
-	return vreinterpret_m128i(
-		__builtin_shuffle(vreinterpret_v8i16(a), mask));
+	return vreinterpret_m128i(__builtin_msa_vshf_h(mask,
+		vreinterpret_v8i16(a), vreinterpret_v8i16(a)));
 }
 
 FORCE_INLINE __m128i _mm_shufflelo_epi16(__m128i a, int imm8)
@@ -975,8 +981,8 @@ FORCE_INLINE __m128i _mm_shufflelo_epi16(__m128i a, int imm8)
 		4, 5, 6, 7
 
 	};
-	return vreinterpret_m128i(
-		__builtin_shuffle(vreinterpret_v8i16(a), mask));
+	return vreinterpret_m128i(__builtin_msa_vshf_h(mask,
+		vreinterpret_v8i16(a), vreinterpret_v8i16(a)));
 }
 
 FORCE_INLINE __m128d _mm_shuffle_pd(__m128d a, __m128d b, int imm8)
@@ -984,21 +990,21 @@ FORCE_INLINE __m128d _mm_shuffle_pd(__m128d a, __m128d b, int imm8)
 	imm8 = imm8 & 3;
 	switch (imm8) {
 	case 0:
-		return vreinterpret_m128d(__builtin_shuffle(
-			vreinterpret_v2i64(a), vreinterpret_v2i64(b),
-			({v2i64 mask = {0, 2}; mask;})));
+		return vreinterpret_m128d(
+			__builtin_msa_vshf_d(({v2i64 mask = {0, 2}; mask;}),
+			vreinterpret_v2i64(b), vreinterpret_v2i64(a)));
 	case 1:
-		return vreinterpret_m128d(__builtin_shuffle(
-			vreinterpret_v2i64(a), vreinterpret_v2i64(b),
-			({v2i64 mask = {1, 2}; mask;})));
+		return vreinterpret_m128d(
+			__builtin_msa_vshf_d(({v2i64 mask = {1, 2}; mask;}),
+			vreinterpret_v2i64(b), vreinterpret_v2i64(a)));
 	case 2:
-		return vreinterpret_m128d(__builtin_shuffle(
-			vreinterpret_v2i64(a), vreinterpret_v2i64(b),
-			({v2i64 mask = {0, 3}; mask;})));
+		return vreinterpret_m128d(
+			__builtin_msa_vshf_d(({v2i64 mask = {0, 3}; mask;}),
+			vreinterpret_v2i64(b), vreinterpret_v2i64(a)));
 	case 3:
-		return vreinterpret_m128d(__builtin_shuffle(
-			vreinterpret_v2i64(a), vreinterpret_v2i64(b),
-			({v2i64 mask = {1, 3}; mask;})));
+		return vreinterpret_m128d(
+			__builtin_msa_vshf_d(({v2i64 mask = {1, 3}; mask;}),
+			vreinterpret_v2i64(b), vreinterpret_v2i64(a)));
 	}
 	return v_msa_setzero(__m128d);
 }
@@ -1011,8 +1017,8 @@ FORCE_INLINE __m128i _mm_blend_epi16(__m128i a, __m128i b, const int imm8)
 		(imm8 >> 4) & 0x1 ? 12 : 4, (imm8 >> 5) & 0x1 ? 13 : 5,
 		(imm8 >> 6) & 0x1 ? 14 : 6, (imm8 >> 7) & 0x1 ? 15 : 7
 	};
-	return vreinterpret_m128i(__builtin_shuffle(
-		vreinterpret_v8i16(a), vreinterpret_v8i16(b), mask));
+	return vreinterpret_m128i(__builtin_msa_vshf_h(mask,
+		vreinterpret_v8i16(b), vreinterpret_v8i16(a)));
 }
 
 FORCE_INLINE __m128d _mm_blend_pd(__m128d a, __m128d b, const int imm8)
@@ -1021,8 +1027,8 @@ FORCE_INLINE __m128d _mm_blend_pd(__m128d a, __m128d b, const int imm8)
 		(imm8     ) & 0x1 ? 2 : 0,
 		(imm8 >> 1) & 0x1 ? 3 : 1
 	};
-	return vreinterpret_m128d(__builtin_shuffle(
-		vreinterpret_v2f64(a), vreinterpret_v2f64(b), mask));
+	return vreinterpret_m128d(__builtin_msa_vshf_d(mask,
+		vreinterpret_v2i64(b), vreinterpret_v2i64(a)));
 }
 
 FORCE_INLINE __m128 _mm_blend_ps(__m128 a, __m128 b, const int imm8)
@@ -1031,8 +1037,8 @@ FORCE_INLINE __m128 _mm_blend_ps(__m128 a, __m128 b, const int imm8)
 		(imm8     ) & 0x1 ? 4 : 0, (imm8 >> 1) & 0x1 ? 5 : 1,
 		(imm8 >> 2) & 0x1 ? 6 : 2, (imm8 >> 3) & 0x1 ? 7 : 3
 	};
-	return vreinterpret_m128(__builtin_shuffle(
-		vreinterpret_v4f32(a), vreinterpret_v4f32(b), mask));
+	return vreinterpret_m128(__builtin_msa_vshf_w(mask,
+		vreinterpret_v4i32(b), vreinterpret_v4i32(a)));
 }
 
 FORCE_INLINE __m128i _mm_blendv_epi8(__m128i a, __m128i b, __m128i mask)
@@ -1706,42 +1712,41 @@ FORCE_INLINE __m128i _mm_add_epi8(__m128i a, __m128i b)
 
 FORCE_INLINE __m128 _mm_hadd_ps(__m128 a, __m128 b)
 {
-	return vreinterpret_m128(__builtin_shuffle(
-			vreinterpret_v4f32(a),vreinterpret_v4f32(b),
-			({v4i32 m = {0, 2, 4, 6}; m;})) +
-		__builtin_shuffle(
-			vreinterpret_v4f32(a), vreinterpret_v4f32(b),
-			({v4i32 m = {1, 3, 5, 7}; m;})));
+	return vreinterpret_m128(vreinterpret_v4f32(
+		__builtin_msa_vshf_w(({v4i32 m = {0, 2, 4, 6}; m;}),
+		vreinterpret_v4i32(b),vreinterpret_v4i32(a))) +
+		vreinterpret_v4f32(
+		__builtin_msa_vshf_w(({v4i32 m = {1, 3, 5, 7}; m;}),
+		vreinterpret_v4i32(b), vreinterpret_v4i32(a))));
 }
 
 FORCE_INLINE __m128d _mm_hadd_pd(__m128d a, __m128d b)
 {
-	return vreinterpret_m128d(__builtin_shuffle(
-			vreinterpret_v2f64(a), vreinterpret_v2f64(b),
-			({v2i64 m = {0, 2}; m;})) +
-		__builtin_shuffle(
-			vreinterpret_v2f64(a), vreinterpret_v2f64(b),
-			({v2i64 m = {1, 3}; m;})));
+	return vreinterpret_m128d(vreinterpret_v2f64(
+		__builtin_msa_vshf_d(({v2i64 m = {0, 2}; m;}),
+		vreinterpret_v2i64(b), vreinterpret_v2i64(a))) +
+		vreinterpret_v2f64(
+		__builtin_msa_vshf_d(({v2i64 m = {1, 3}; m;}),
+		vreinterpret_v2i64(b), vreinterpret_v2i64(a))));
 }
 
 FORCE_INLINE __m128i _mm_hadd_epi16(__m128i a, __m128i b)
 {
-	return vreinterpret_m128i(__builtin_shuffle(
-			vreinterpret_v8i16(a), vreinterpret_v8i16(b),
-			({v8i16 m = {0, 2, 4, 6, 8, 10, 12, 14}; m;})) +
-		__builtin_shuffle(
-			vreinterpret_v8i16(a), vreinterpret_v8i16(b),
-			({v8i16 m = {1, 3, 5, 7, 9, 11, 13, 15}; m;})));
+	return vreinterpret_m128i(__builtin_msa_vshf_h(
+		({v8i16 m = {0, 2, 4, 6, 8, 10, 12, 14}; m;}),
+		vreinterpret_v8i16(b), vreinterpret_v8i16(a)) +
+		__builtin_msa_vshf_h(
+		({v8i16 m = {1, 3, 5, 7, 9, 11, 13, 15}; m;}),
+		vreinterpret_v8i16(b), vreinterpret_v8i16(a)));
 }
 
 FORCE_INLINE __m128i _mm_hadd_epi32(__m128i a, __m128i b)
 {
-	return vreinterpret_m128i(__builtin_shuffle(
-			vreinterpret_v4i32(a), vreinterpret_v4i32(b),
-			({v4i32 m = {0, 2, 4, 6}; m;})) +
-		__builtin_shuffle(
-			vreinterpret_v4i32(a), vreinterpret_v4i32(b),
-			({v4i32 m = {1, 3, 5, 7}; m;})));
+	return vreinterpret_m128i(
+		__builtin_msa_vshf_w(({v4i32 m = {0, 2, 4, 6}; m;}),
+		vreinterpret_v4i32(b), vreinterpret_v4i32(a)) +
+		__builtin_msa_vshf_w(({v4i32 m = {1, 3, 5, 7}; m;}),
+		vreinterpret_v4i32(b), vreinterpret_v4i32(a)));
 }
 
 FORCE_INLINE __m64 _mm_hadd_pi16(__m64 a, __m64 b)
@@ -1765,14 +1770,12 @@ FORCE_INLINE __m64 _mm_hadd_pi32(__m64 a, __m64 b)
 FORCE_INLINE __m128i _mm_hadds_epi16(__m128i a, __m128i b)
 {
 	return vreinterpret_m128i(
-		__builtin_msa_adds_s_h(
-		__builtin_shuffle(
-			vreinterpret_v8i16(a), vreinterpret_v8i16(b),
-		({v8i16 m = {0, 2, 4, 6, 8, 10, 12, 14}; m;})),
-		__builtin_shuffle(
-			vreinterpret_v8i16(a), vreinterpret_v8i16(b),
-		({v8i16 m = {1, 3, 5, 7, 9, 11, 13, 15}; m;})))
-		);
+		__builtin_msa_adds_s_h(__builtin_msa_vshf_h(
+		({v8i16 m = {0, 2, 4, 6, 8, 10, 12, 14}; m;}),
+		vreinterpret_v8i16(b), vreinterpret_v8i16(a)),
+		__builtin_msa_vshf_h(
+		({v8i16 m = {1, 3, 5, 7, 9, 11, 13, 15}; m;}),
+		vreinterpret_v8i16(b), vreinterpret_v8i16(a))));
 }
 
 FORCE_INLINE __m64 _mm_hadds_pi16(__m64 a, __m64 b)
@@ -1786,42 +1789,41 @@ FORCE_INLINE __m64 _mm_hadds_pi16(__m64 a, __m64 b)
 
 FORCE_INLINE __m128 _mm_hsub_ps(__m128 a, __m128 b)
 {
-	return vreinterpret_m128(__builtin_shuffle(
-			vreinterpret_v4f32(a),vreinterpret_v4f32(b),
-			({v4i32 m = {0, 2, 4, 6}; m;})) -
-		__builtin_shuffle(
-			vreinterpret_v4f32(a), vreinterpret_v4f32(b),
-			({v4i32 m = {1, 3, 5, 7}; m;})));
+	return vreinterpret_m128(vreinterpret_v4f32(
+		__builtin_msa_vshf_w(({v4i32 m = {0, 2, 4, 6}; m;}),
+		vreinterpret_v4i32(b),vreinterpret_v4i32(a))) -
+		vreinterpret_v4f32(
+		__builtin_msa_vshf_w(({v4i32 m = {1, 3, 5, 7}; m;}),
+		vreinterpret_v4i32(b), vreinterpret_v4i32(a))));
 }
 
 FORCE_INLINE __m128d _mm_hsub_pd(__m128d a, __m128d b)
 {
-	return vreinterpret_m128d(__builtin_shuffle(
-			vreinterpret_v2f64(a), vreinterpret_v2f64(b),
-			({v2i64 m = {0, 2}; m;})) -
-		__builtin_shuffle(
-			vreinterpret_v2f64(a), vreinterpret_v2f64(b),
-			({v2i64 m = {1, 3}; m;})));
+	return vreinterpret_m128d(vreinterpret_v2f64(
+		__builtin_msa_vshf_d(({v2i64 m = {0, 2}; m;}),
+		vreinterpret_v2i64(b), vreinterpret_v2i64(a))) -
+		vreinterpret_v2f64(
+		__builtin_msa_vshf_d(({v2i64 m = {1, 3}; m;}),
+		vreinterpret_v2i64(b), vreinterpret_v2i64(a))));
 }
 
 FORCE_INLINE __m128i _mm_hsub_epi16(__m128i a, __m128i b)
 {
-	return vreinterpret_m128i(__builtin_shuffle(
-			vreinterpret_v8i16(a), vreinterpret_v8i16(b),
-			({v8i16 m = {0, 2, 4, 6, 8, 10, 12, 14}; m;})) -
-		__builtin_shuffle(
-			vreinterpret_v8i16(a), vreinterpret_v8i16(b),
-			({v8i16 m = {1, 3, 5, 7, 9, 11, 13, 15}; m;})));
+	return vreinterpret_m128i(__builtin_msa_vshf_h(
+		({v8i16 m = {0, 2, 4, 6, 8, 10, 12, 14}; m;}),
+		vreinterpret_v8i16(b), vreinterpret_v8i16(a)) -
+		__builtin_msa_vshf_h(
+		({v8i16 m = {1, 3, 5, 7, 9, 11, 13, 15}; m;}),
+		vreinterpret_v8i16(b), vreinterpret_v8i16(a)));
 }
 
 FORCE_INLINE __m128i _mm_hsub_epi32(__m128i a, __m128i b)
 {
-	return vreinterpret_m128i(__builtin_shuffle(
-			vreinterpret_v4i32(a), vreinterpret_v4i32(b),
-			({v4i32 m = {0, 2, 4, 6}; m;})) -
-		__builtin_shuffle(
-			vreinterpret_v4i32(a), vreinterpret_v4i32(b),
-			({v4i32 m = {1, 3, 5, 7}; m;})));
+	return vreinterpret_m128i(
+		__builtin_msa_vshf_w(({v4i32 m = {0, 2, 4, 6}; m;}),
+		vreinterpret_v4i32(b), vreinterpret_v4i32(a)) -
+		__builtin_msa_vshf_w(({v4i32 m = {1, 3, 5, 7}; m;}),
+		vreinterpret_v4i32(b), vreinterpret_v4i32(a)));
 }
 
 FORCE_INLINE __m64 _mm_hsub_pi16(__m64 a, __m64 b)
@@ -1845,14 +1847,12 @@ FORCE_INLINE __m64 _mm_hsub_pi32(__m64 a, __m64 b)
 FORCE_INLINE __m128i _mm_hsubs_epi16(__m128i a, __m128i b)
 {
 	return vreinterpret_m128i(
-		__builtin_msa_subs_s_h(
-		__builtin_shuffle(
-			vreinterpret_v8i16(a), vreinterpret_v8i16(b),
-		({v8i16 m = {0, 2, 4, 6, 8, 10, 12, 14}; m;})),
-		__builtin_shuffle(
-			vreinterpret_v8i16(a), vreinterpret_v8i16(b),
-		({v8i16 m = {1, 3, 5, 7, 9, 11, 13, 15}; m;})))
-		);
+		__builtin_msa_subs_s_h(__builtin_msa_vshf_h(
+		({v8i16 m = {0, 2, 4, 6, 8, 10, 12, 14}; m;}),
+		vreinterpret_v8i16(b), vreinterpret_v8i16(a)),
+		__builtin_msa_vshf_h(
+		({v8i16 m = {1, 3, 5, 7, 9, 11, 13, 15}; m;}),
+		vreinterpret_v8i16(b), vreinterpret_v8i16(a))));
 }
 
 FORCE_INLINE __m64 _mm_hsubs_pi16(__m64 a, __m64 b)
@@ -3501,10 +3501,9 @@ FORCE_INLINE __m128i _mm_packs_epi16(__m128i a, __m128i b)
 {
 	v16i8 mask = {
 		0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 32};
-	return vreinterpret_m128i(__builtin_shuffle(
-		vreinterpret_v16i8(__builtin_msa_sat_s_h(vreinterpret_v8i16(a), 7)),
+	return vreinterpret_m128i(__builtin_msa_vshf_b(mask,
 		vreinterpret_v16i8(__builtin_msa_sat_s_h(vreinterpret_v8i16(b), 7)),
-		mask));
+		vreinterpret_v16i8(__builtin_msa_sat_s_h(vreinterpret_v8i16(a), 7))));
 }
 
 FORCE_INLINE __m128i _mm_packus_epi16(__m128i a, __m128i b)
@@ -3513,19 +3512,17 @@ FORCE_INLINE __m128i _mm_packus_epi16(__m128i a, __m128i b)
 		0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 32};
 	v8i16 u = __builtin_msa_maxi_s_h(vreinterpret_v8i16(a), 0);
 	v8i16 v = __builtin_msa_maxi_s_h(vreinterpret_v8i16(b), 0);
-	return vreinterpret_m128i(__builtin_shuffle(
-		vreinterpret_v16u8(__builtin_msa_sat_u_h(vreinterpret_v8u16(u), 7)),
-		vreinterpret_v16u8(__builtin_msa_sat_u_h(vreinterpret_v8u16(v), 7)),
-		mask));
+	return vreinterpret_m128i(__builtin_msa_vshf_b(mask,
+		vreinterpret_v16i8(__builtin_msa_sat_u_h(vreinterpret_v8u16(v), 7)),
+		vreinterpret_v16i8(__builtin_msa_sat_u_h(vreinterpret_v8u16(u), 7))));
 }
 
 FORCE_INLINE __m128i _mm_packs_epi32(__m128i a, __m128i b)
 {
 	v8i16 mask = {0, 2, 4, 6, 8, 10, 12, 14};
-	return vreinterpret_m128i(__builtin_shuffle(
-		vreinterpret_v8i16(__builtin_msa_sat_s_w(vreinterpret_v4i32(a), 15)),
+	return vreinterpret_m128i(__builtin_msa_vshf_h(mask,
 		vreinterpret_v8i16(__builtin_msa_sat_s_w(vreinterpret_v4i32(b), 15)),
-		mask));
+		vreinterpret_v8i16(__builtin_msa_sat_s_w(vreinterpret_v4i32(a), 15))));
 }
 
 FORCE_INLINE __m128i _mm_packus_epi32(__m128i a, __m128i b)
@@ -3533,10 +3530,9 @@ FORCE_INLINE __m128i _mm_packus_epi32(__m128i a, __m128i b)
 	v8i16 mask = {0, 2, 4, 6, 8, 10, 12, 14};
 	v4i32 u = __builtin_msa_maxi_s_w(vreinterpret_v4i32(a), 0);
 	v4i32 v = __builtin_msa_maxi_s_w(vreinterpret_v4i32(b), 0);
-	return vreinterpret_m128i(__builtin_shuffle(
-		vreinterpret_v8u16(__builtin_msa_sat_u_w(vreinterpret_v4u32(u), 15)),
-		vreinterpret_v8u16(__builtin_msa_sat_u_w(vreinterpret_v4u32(v), 15)),
-		mask));
+	return vreinterpret_m128i(__builtin_msa_vshf_h(mask,
+		vreinterpret_v8i16(__builtin_msa_sat_u_w(vreinterpret_v4u32(v), 15)),
+		vreinterpret_v8i16(__builtin_msa_sat_u_w(vreinterpret_v4u32(u), 15))));
 }
 
 FORCE_INLINE __m128i _mm_unpacklo_epi8(__m128i a, __m128i b)
