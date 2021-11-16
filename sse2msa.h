@@ -38,7 +38,7 @@
  * sse2msa is freely redistributable under the MIT License.
  *
  * Copyright (c) 2015-2021, The sse2neon project.
- * Copyright (c) 2021 CIP United Co. Ltd.
+ * Copyright (c) 2021, CIP United Co. Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
